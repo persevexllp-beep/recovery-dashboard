@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Performance Hub</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body { margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .hidden-view { display: none !important; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid #2563eb;
+            border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Status Badge Colors */
+        .status-paid { background-color: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .status-unpaid { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .status-partial { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .status-default { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+        /* Chart Container Fix */
+        .chart-container { position: relative; height: 250px; width: 100%; }
+        
+        /* Alias Chips */
+        .alias-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #e0e7ff; color: #3730a3; padding: 4px 10px;
+            border-radius: 999px; font-size: 12px; font-weight: 600;
+        }
+        .alias-chip button { cursor: pointer; color: #6366f1; border: none; background: transparent; }
+        .alias-chip button:hover { color: #dc2626; }
+    </style>
+</head>
+<body class="h-screen overflow-hidden text-slate-800 flex">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginView" class="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center">
+        <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border border-slate-800">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                    <i class="fas fa-chart-pie text-2xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-slate-900">SalesHub</h2>
+                <p class="text-sm text-slate-500 mt-2">Sign in to access your dashboard</p>
+            </div>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-slate-700 text-sm font-semibold mb-2">Username</label>
+                    <input type="text" id="loginUser" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-slate-50" placeholder="e.g. admin">
+                </div>
+                <div>
+                    <label class="block text-slate-700 text-sm font-semibold mb-2">Password</label>
+                    <input type="password" id="loginPass" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-slate-50" placeholder="Password">
+                </div>
+                <button onclick="window.handleLogin()" class="w-full bg-indigo-600 text-white font-bold p-3 rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 mt-2">
+                    Sign In
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP LAYOUT -->
+    <div id="appLayout" class="hidden-view w-full h-full flex">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950">
+                <i class="fas fa-layer-group text-indigo-400 mr-3"></i>
+                <span class="font-bold text-lg tracking-wide">SalesDesk</span>
+            </div>
+
+            <!-- Admin Nav -->
+            <nav id="navAdmin" class="hidden-view flex-1 p-4 space-y-1 overflow-y-auto">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 mt-2 px-2">Data & Analytics</p>
+                <button onclick="window.switchAdminTab('master')" id="tab-master" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition bg-indigo-600 text-white shadow-md">
+                    <i class="fas fa-database w-4 text-center"></i> Master Database
+                </button>
+                <button onclick="window.switchAdminTab('execStats')" id="tab-execStats" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition">
+                    <i class="fas fa-chart-bar w-4 text-center"></i> Performance
+                </button>
+                
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 mt-6 px-2">Configuration</p>
+                <button onclick="window.switchAdminTab('team')" id="tab-team" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition">
+                    <i class="fas fa-users-cog w-4 text-center"></i> Team & Mappings
+                </button>
+            </nav>
+
+            <!-- Exec Nav -->
+            <nav id="navExec" class="hidden-view flex-1 p-4 space-y-1">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 mt-2 px-2">Workspace</p>
+                <button class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-indigo-600 text-white shadow-md">
+                    <i class="fas fa-list-check w-4 text-center"></i> My Leads
+                </button>
+            </nav>
+
+            <!-- User Profile -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shadow-lg">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <p id="sidebarUserName" class="text-sm font-semibold truncate text-white">User</p>
+                        <p id="sidebarUserRole" class="text-xs text-slate-400 capitalize">Role</p>
+                    </div>
+                </div>
+                <button onclick="window.logout()" class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-red-600 hover:text-white transition">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
+            
+            <!-- Top Header -->
+            <header class="h-16 bg-white border-b border-slate-200 px-6 flex justify-between items-center shadow-sm z-10">
+                <h1 id="pageTitle" class="text-lg font-bold text-slate-800">Dashboard</h1>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex items-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> System Active
+                    </div>
+                </div>
+            </header>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-6 relative">
+                
+                <!-- ================= ADMIN: MASTER SHEET ================= -->
+                <div id="adminMasterView" class="hidden-view space-y-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex gap-3 items-center w-full md:w-auto">
+                             <label class="flex items-center justify-center px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg cursor-pointer hover:bg-indigo-100 transition border border-indigo-200 text-sm font-semibold gap-2">
+                                <i class="fas fa-cloud-upload-alt"></i> Upload CSV
+                                <input type="file" id="csvFile" accept=".csv" class="hidden" onchange="document.getElementById('fileNameDisplay').innerText = this.files[0].name">
+                            </label>
+                            <span id="fileNameDisplay" class="text-xs text-gray-500 truncate max-w-[150px]"></span>
+                            <button onclick="window.processCSV()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm text-sm font-semibold">Sync Data</button>
+                        </div>
+                        <div id="uploadStatus" class="text-sm font-medium"></div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4">
+                         <div class="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
+                            <span class="pl-3 pr-2 text-gray-400 text-sm"><i class="far fa-calendar-alt"></i></span>
+                            <select id="adminMasterMonthFilter" onchange="window.renderAdminMasterTable()" class="p-2 bg-transparent outline-none text-sm font-medium text-slate-700 cursor-pointer min-w-[140px]">
+                                <option value="all">All Months</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 relative">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            <input type="text" id="adminSearch" onkeyup="window.filterTable('adminTable', 'adminSearch')" placeholder="Search anything..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-280px)]">
+                        <div class="flex-1 overflow-auto rounded-xl">
+                            <table id="adminTable" class="min-w-full text-sm text-left text-slate-600">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-4">Date</th>
+                                        <th class="px-6 py-4">Student</th>
+                                        <th class="px-6 py-4">Executive (System)</th>
+                                        <th class="px-6 py-4">Raw CSV Name</th>
+                                        <th class="px-6 py-4">Month</th>
+                                        <th class="px-6 py-4 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= ADMIN: EXECUTIVE PERFORMANCE ================= -->
+                <div id="adminExecStatsView" class="hidden-view space-y-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center gap-6">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-bold text-slate-400 uppercase">Select Executive</label>
+                            <select id="adminExecSelector" onchange="window.renderAdminExecSpecific()" class="p-2 border border-slate-300 rounded-lg bg-slate-50 min-w-[250px] outline-none text-sm font-medium">
+                                <option value="">-- Choose Executive --</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-bold text-slate-400 uppercase">Select Month</label>
+                            <select id="adminExecMonthFilter" onchange="window.renderAdminExecSpecific()" class="p-2 border border-slate-300 rounded-lg bg-slate-50 min-w-[200px] outline-none text-sm font-medium">
+                                <option value="all">Lifetime (All Months)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="adminExecDataContainer" class="hidden-view flex flex-col gap-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1 flex flex-col items-center">
+                                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-4 w-full text-center">Status Distribution</h3>
+                                <div class="chart-container"><canvas id="execPieChart"></canvas></div>
+                            </div>
+                            <div class="lg:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center items-center">
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Total Leads</p>
+                                    <p id="statTotalLeads" class="text-3xl font-bold text-slate-800">0</p>
+                                </div>
+                                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center items-center">
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Converted</p>
+                                    <p id="statPaid" class="text-3xl font-bold text-slate-800">0</p>
+                                </div>
+                                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center items-center">
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Revenue</p>
+                                    <p id="statRevenue" class="text-3xl font-bold text-slate-800">₹0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[500px]">
+                            <div class="p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl flex justify-between items-center">
+                                <h3 class="font-bold text-slate-700 text-sm">Leads Details</h3>
+                            </div>
+                            <div class="flex-1 overflow-auto">
+                                <table class="min-w-full text-sm text-left text-slate-600">
+                                    <thead class="text-xs text-slate-500 uppercase bg-white border-b">
+                                        <tr><th class="px-6 py-4">Student</th><th class="px-6 py-4">Phone</th><th class="px-6 py-4 text-right">Paid</th><th class="px-6 py-4 text-center">Status</th></tr>
+                                    </thead>
+                                    <tbody id="adminExecSpecificTableBody" class="divide-y divide-slate-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= ADMIN: TEAM MAPPING MANAGER ================= -->
+                <div id="adminTeamView" class="hidden-view space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-800">Team Name Mappings</h3>
+                                <p class="text-sm text-slate-500">Manage spelling variations (aliases) for executives.</p>
+                            </div>
+                            <button onclick="window.reassignAllLeads()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2">
+                                <i class="fas fa-sync-alt"></i> Re-Apply Mappings to Database
+                            </button>
+                        </div>
+                        
+                        <div class="bg-blue-50 border border-blue-200 text-blue-800 text-sm p-3 rounded-lg mb-6">
+                            <i class="fas fa-info-circle mr-1"></i> If a lead is "Unassigned", add the exact spelling from the CSV as an alias to the correct Executive here, then click "Re-Apply".
+                        </div>
+
+                        <!-- Add New Exec Input -->
+                        <div class="flex gap-2 mb-6 max-w-lg">
+                            <input type="text" id="newExecName" placeholder="Add New Executive Name..." class="flex-1 p-2 border rounded-lg text-sm">
+                            <button onclick="window.addNewExecutive()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-semibold">Add Person</button>
+                        </div>
+
+                        <!-- Dynamic Grid of Execs -->
+                        <div id="teamMappingGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <!-- Cards Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= EXECUTIVE: MY LEADS VIEW ================= -->
+                <div id="executiveOnlyView" class="hidden-view h-full flex flex-col">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div class="flex items-center gap-3 w-full md:w-auto">
+                                <div class="bg-white border border-slate-200 rounded-lg px-3 py-2 flex items-center shadow-sm">
+                                    <i class="fas fa-filter text-slate-400 text-sm mr-2"></i>
+                                    <select id="execMonthFilter" onchange="window.renderExecutiveTable()" class="bg-transparent outline-none text-sm font-semibold text-slate-700 cursor-pointer">
+                                        <option value="all">All Months</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="relative w-full md:w-80">
+                                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+                                <input type="text" id="execSearch" onkeyup="window.filterTable('execTable', 'execSearch')" placeholder="Search Name, Phone..." class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg w-full shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-auto bg-white relative">
+                            <table id="execTable" class="min-w-full text-sm text-left text-slate-600">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="px-6 py-4">Student Name</th>
+                                        <th class="px-6 py-4">Contact</th>
+                                        <th class="px-6 py-4">Plan / Month</th>
+                                        <th class="px-6 py-4 text-center">Connect</th>
+                                        <th class="px-6 py-4 min-w-[180px]">Status Update</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="execTableBody" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- FIREBASE & LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // ------------------------------------------------------------------
+        // REPLACE WITH YOUR ACTUAL CONFIGURATION OR LOGIN WILL FAIL FOR DATA
+        // ------------------------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyDJ8KaP0EOwcr4GT2YEfRVybDmls7HIz3c",
+    authDomain: "sales-recovery-dashboard.firebaseapp.com",
+    projectId: "sales-recovery-dashboard",
+    storageBucket: "sales-recovery-dashboard.firebasestorage.app",
+    messagingSenderId: "765634331393",
+    appId: "1:765634331393:web:6c643eb970eb89f1fd9100",
+    measurementId: "G-RCFEB5HG6K"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- HARDCODED USERS ---
+        const USER_DB = {
+            "admin": { pass: "admin123", role: "admin", name: "System Admin" },
+            "aman": { pass: "pass123", role: "exec", name: "Aman Aayush" },
+            "ashwini": { pass: "pass123", role: "exec", name: "Ashwini Anthu Naik" },
+            "ayushika": { pass: "pass123", role: "exec", name: "Ayushika Jha" },
+            "saideep": { pass: "pass123", role: "exec", name: "Gummadavelli Saideep" },
+            "harsh": { pass: "pass123", role: "exec", name: "Harsh Ashok Girhe" },
+            "hrishikesh": { pass: "pass123", role: "exec", name: "HRISHIKESH P" },
+            "bhavya": { pass: "pass123", role: "exec", name: "K Bhavya" },
+            "kavin": { pass: "pass123", role: "exec", name: "Kavin Kumar" },
+            "kaviyarasan": { pass: "pass123", role: "exec", name: "Kaviyarasan C" },
+            "praagna": { pass: "pass123", role: "exec", name: "KOYA SIVA NAGA SAI PRAAGNA" },
+            "likitha": { pass: "pass123", role: "exec", name: "Likitha A" },
+            "shashi": { pass: "pass123", role: "exec", name: "Maddana Shashi Sharan" },
+            "mithun": { pass: "pass123", role: "exec", name: "MITHUN KL" },
+            "umar": { pass: "pass123", role: "exec", name: "Mohammad Umar Farooq S" },
+            "namrata": { pass: "pass123", role: "exec", name: "Namrata Sawant" },
+            "namratha": { pass: "pass123", role: "exec", name: "Namratha" },
+            "nishi": { pass: "pass123", role: "exec", name: "Nishi Acharya" },
+            "palash": { pass: "pass123", role: "exec", name: "Palash" },
+            "poojan": { pass: "pass123", role: "exec", name: "Poojan Kothari" },
+            "pratikshya": { pass: "pass123", role: "exec", name: "Pratikshya" },
+            "pritha": { pass: "pass123", role: "exec", name: "Pritha Guha Majumdar" },
+            "priya": { pass: "pass123", role: "exec", name: "Priya Kulkarni" },
+            "ramij": { pass: "pass123", role: "exec", name: "RAMIJ RAI GAYEN" },
+            "ritesh": { pass: "pass123", role: "exec", name: "Ritesh Birajdar" },
+            "sanjeev": { pass: "pass123", role: "exec", name: "Sanjeev Kumar" },
+            "sharan": { pass: "pass123", role: "exec", name: "Sharan Dayanand Sagare" },
+            "shreya": { pass: "pass123", role: "exec", name: "shreya netam" },
+            "siva": { pass: "pass123", role: "exec", name: "SIVA SANKARAN N" },
+            "soumallya": { pass: "pass123", role: "exec", name: "Soumallya Chandra Chandra" },
+            "subhajit": { pass: "pass123", role: "exec", name: "Subhajit Bhandary" },
+            "subhash": { pass: "pass123", role: "exec", name: "Subhash S" },
+            "sumana": { pass: "pass123", role: "exec", name: "Sumana Samanta" },
+            "sushmitha": { pass: "pass123", role: "exec", name: "Sushmitha" },
+            "tamanna": { pass: "pass123", role: "exec", name: "Tamanna Kalariya" },
+            "vishal": { pass: "pass123", role: "exec", name: "Vishal" },
+            "wassef": { pass: "pass123", role: "exec", name: "Wassef Wani" },
+            "yashraj": { pass: "pass123", role: "exec", name: "Yashraj Santosh Misal" }
+        };
+
+        // Fallback Mapping
+        let globalNameMapping = {
+            "Admin User": ["Admin", "System"],
+            // Note: The rest will be loaded from DB, but basic structure is here
+        };
+
+        // --- STATE ---
+        let allLeads = [];
+        let loggedInUser = null;
+        let adminChart = null;
+
+        // --- AUTH ---
+        async function handleLogin() {
+            const userIn = document.getElementById('loginUser').value.toLowerCase().trim();
+            const passIn = document.getElementById('loginPass').value;
+
+            if (USER_DB[userIn] && USER_DB[userIn].pass === passIn) {
+                loggedInUser = USER_DB[userIn];
+                
+                // Switch Views
+                document.getElementById('loginView').classList.add('hidden-view');
+                document.getElementById('appLayout').classList.remove('hidden-view');
+                
+                document.getElementById('sidebarUserName').innerText = loggedInUser.name;
+                document.getElementById('sidebarUserRole').innerText = loggedInUser.role === 'admin' ? "Administrator" : "Sales Executive";
+
+                if(loggedInUser.role === 'admin') {
+                    document.getElementById('navAdmin').classList.remove('hidden-view');
+                    switchAdminTab('master');
+                    initAdminListeners();
+                    try { await loadMappings(); } catch(e) { console.warn("Mapping load skipped:", e); }
+                } else {
+                    document.getElementById('navExec').classList.remove('hidden-view');
+                    document.getElementById('pageTitle').innerText = "My Assigned Leads";
+                    document.getElementById('executiveOnlyView').classList.remove('hidden-view');
+                    initExecutiveListeners();
+                    try { await loadMappings(); } catch(e) { console.warn("Mapping load skipped:", e); }
+                }
+            } else {
+                alert("Invalid Username or Password.");
+            }
+        }
+
+        function logout() { location.reload(); }
+
+        // --- TABS ---
+        function switchAdminTab(tab) {
+            document.getElementById('adminMasterView').classList.add('hidden-view');
+            document.getElementById('adminExecStatsView').classList.add('hidden-view');
+            document.getElementById('adminTeamView').classList.add('hidden-view');
+            
+            ['master', 'execStats', 'team'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if(btn) {
+                    btn.classList.replace('bg-indigo-600', 'text-slate-400');
+                    btn.classList.replace('text-white', 'hover:bg-slate-800');
+                }
+            });
+
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            if(activeBtn) {
+                activeBtn.classList.add('bg-indigo-600', 'text-white');
+                activeBtn.classList.remove('text-slate-400', 'hover:bg-slate-800');
+            }
+
+            if(tab === 'master') {
+                document.getElementById('adminMasterView').classList.remove('hidden-view');
+                document.getElementById('pageTitle').innerText = "Master Database";
+            } else if (tab === 'execStats') {
+                document.getElementById('adminExecStatsView').classList.remove('hidden-view');
+                document.getElementById('pageTitle').innerText = "Performance Analytics";
+                populateAdminSelectors(); 
+            } else if (tab === 'team') {
+                document.getElementById('adminTeamView').classList.remove('hidden-view');
+                document.getElementById('pageTitle').innerText = "Team Management";
+                renderTeamManagement();
+            }
+        }
+
+        // --- MAPPING MANAGER ---
+        async function loadMappings() {
+            try {
+                const docRef = doc(db, "settings", "team_mappings");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    globalNameMapping = docSnap.data().data;
+                } else {
+                    // Initialize with standard executive list from USER_DB keys if empty
+                    const initialMap = {};
+                    Object.values(USER_DB).forEach(u => {
+                        if(u.role === 'exec') initialMap[u.name] = [u.name];
+                    });
+                    globalNameMapping = initialMap;
+                    await setDoc(docRef, { data: globalNameMapping });
+                }
+                if(!document.getElementById('adminTeamView').classList.contains('hidden-view')) {
+                    renderTeamManagement();
+                }
+            } catch(e) { console.error("Error loading mappings", e); }
+        }
+
+        function renderTeamManagement() {
+            const grid = document.getElementById('teamMappingGrid');
+            grid.innerHTML = '';
+            const sortedNames = Object.keys(globalNameMapping).sort();
+
+            sortedNames.forEach(name => {
+                const aliases = globalNameMapping[name] || [];
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3";
+                
+                let chipsHtml = aliases.map((alias, idx) => `
+                    <span class="alias-chip">
+                        ${alias}
+                        <button onclick="window.removeAlias('${name}', ${idx})" title="Remove"><i class="fas fa-times"></i></button>
+                    </span>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <h4 class="font-bold text-slate-800 text-sm">${name}</h4>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-2 min-h-[30px]">
+                        ${chipsHtml}
+                    </div>
+                    <div class="mt-auto pt-2 border-t border-slate-100 flex gap-2">
+                        <input type="text" id="input-${name.replace(/[^a-zA-Z0-9]/g, '')}" placeholder="Add alias..." class="flex-1 text-xs p-2 border rounded">
+                        <button onclick="window.addAlias('${name}')" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-100">Add</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function addNewExecutive() {
+            const name = document.getElementById('newExecName').value.trim();
+            if(!name) return;
+            if(globalNameMapping[name]) return alert("Exists already.");
+            
+            globalNameMapping[name] = [name];
+            await setDoc(doc(db, "settings", "team_mappings"), { data: globalNameMapping });
+            document.getElementById('newExecName').value = '';
+            renderTeamManagement();
+        }
+
+        async function addAlias(execName) {
+            const inputId = `input-${execName.replace(/[^a-zA-Z0-9]/g, '')}`;
+            const val = document.getElementById(inputId).value.trim();
+            if(!val) return;
+
+            globalNameMapping[execName].push(val);
+            await setDoc(doc(db, "settings", "team_mappings"), { data: globalNameMapping });
+            renderTeamManagement();
+        }
+
+        async function removeAlias(execName, idx) {
+            if(!confirm("Remove this alias?")) return;
+            globalNameMapping[execName].splice(idx, 1);
+            await setDoc(doc(db, "settings", "team_mappings"), { data: globalNameMapping });
+            renderTeamManagement();
+        }
+
+        function getCanonicalName(inputName) {
+            if(!inputName) return "Unassigned";
+            const cleanInput = inputName.toString().trim();
+            for (const [canonical, variants] of Object.entries(globalNameMapping)) {
+                if (canonical.toLowerCase() === cleanInput.toLowerCase()) return canonical;
+                if (variants && variants.some(v => v.toLowerCase() === cleanInput.toLowerCase())) {
+                    return canonical;
+                }
+            }
+            return "Unassigned";
+        }
+
+        // --- BULK REASSIGN ---
+        async function reassignAllLeads() {
+            if(!confirm("Re-scan database to fix 'Unassigned' leads based on current Alias settings?")) return;
+            const btn = document.querySelector('button[onclick="window.reassignAllLeads()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing...`;
+            btn.disabled = true;
+
+            try {
+                let batch = writeBatch(db);
+                let count = 0;
+                let batchCount = 0;
+
+                for(let lead of allLeads) {
+                    if(lead.rawExecutiveName) {
+                        const newCanonical = getCanonicalName(lead.rawExecutiveName);
+                        if(newCanonical !== lead.executiveName) {
+                            const ref = doc(db, "leads", lead.identifierID);
+                            batch.update(ref, { executiveName: newCanonical });
+                            count++;
+                            batchCount++;
+                        }
+                    }
+                    if(batchCount >= 400) {
+                        await batch.commit();
+                        batch = writeBatch(db);
+                        batchCount = 0;
+                    }
+                }
+                if(batchCount > 0) await batch.commit();
+                alert(`Done! Updated ${count} leads.`);
+            } catch(e) { console.error(e); alert("Error: " + e.message); } 
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
+        }
+
+        // --- TABLE RENDERERS ---
+        function renderAdminMasterTable() {
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = '';
+            const selectedMonth = document.getElementById('adminMasterMonthFilter').value;
+            let displayLeads = selectedMonth === 'all' ? allLeads : allLeads.filter(l => l.month === selectedMonth);
+            
+            displayLeads.slice(0, 300).forEach(lead => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">${new Date(lead.timestamp).toLocaleDateString()}</td>
+                    <td class="px-6 py-4"><div class="font-bold text-slate-800">${lead.studentName}</div></td>
+                    <td class="px-6 py-4 text-sm font-medium text-indigo-600">${lead.executiveName}</td>
+                    <td class="px-6 py-4 text-xs text-gray-400">${lead.rawExecutiveName || '-'}</td>
+                    <td class="px-6 py-4 text-xs text-slate-500 font-mono bg-slate-100 rounded px-2 w-fit">${lead.month}</td>
+                    <td class="px-6 py-4 text-center">${getStatusBadge(lead.status)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderAdminExecSpecific() {
+            const execName = document.getElementById('adminExecSelector').value;
+            const monthFilter = document.getElementById('adminExecMonthFilter').value;
+            const container = document.getElementById('adminExecDataContainer');
+            
+            if(!execName) { container.classList.add('hidden-view'); return; }
+            container.classList.remove('hidden-view');
+
+            let execLeads = allLeads.filter(l => l.executiveName === execName);
+            if(monthFilter !== 'all') execLeads = execLeads.filter(l => l.month === monthFilter);
+
+            let counts = { paid: 0, unpaid: 0, partial: 0, other: 0 };
+            let revenue = 0;
+            const tbody = document.getElementById('adminExecSpecificTableBody');
+            tbody.innerHTML = '';
+
+            execLeads.forEach(lead => {
+                const st = (lead.status || "unpaid").toLowerCase();
+                if(st === 'paid') counts.paid++;
+                else if(st.includes('unpaid')) counts.unpaid++;
+                else if(st.includes('partial')) counts.partial++;
+                else counts.other++;
+
+                if(st === 'paid' || st.includes('partial')) revenue += parseFloat(lead.amountPaid) || 0;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-slate-700">${lead.studentName}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500 font-mono">${lead.studentPhone}</td>
+                    <td class="px-6 py-4 text-right font-mono text-sm">₹${lead.amountPaid}</td>
+                    <td class="px-6 py-4 text-center">${getStatusBadge(lead.status)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('statTotalLeads').innerText = execLeads.length;
+            document.getElementById('statPaid').innerText = counts.paid;
+            document.getElementById('statRevenue').innerText = `₹${revenue.toLocaleString()}`;
+
+            const ctx = document.getElementById('execPieChart').getContext('2d');
+            if(adminChart) adminChart.destroy();
+            adminChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Paid', 'Unpaid', 'Partial', 'Other'],
+                    datasets: [{ data: [counts.paid, counts.unpaid, counts.partial, counts.other], backgroundColor: ['#22c55e', '#ef4444', '#eab308', '#94a3b8'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        function renderExecutiveTable() {
+            const tbody = document.getElementById('execTableBody');
+            tbody.innerHTML = '';
+            const selectedMonth = document.getElementById('execMonthFilter').value;
+            let filteredLeads = selectedMonth === 'all' ? allLeads : allLeads.filter(l => l.month === selectedMonth);
+
+            filteredLeads.forEach(lead => {
+                const st = (lead.status || "unpaid").toLowerCase().trim();
+                const isPaid = st === 'paid';
+                let selectClass = "w-full p-2 border rounded-lg shadow-sm font-semibold outline-none transition text-sm ";
+                if(isPaid) selectClass += "bg-green-50 text-green-700 border-green-200";
+                else if(st.includes('unpaid')) selectClass += "bg-red-50 text-red-700 border-red-200";
+                else selectClass += "bg-yellow-50 text-yellow-700 border-yellow-200";
+
+                let rawPhone = lead.studentPhone.replace(/[^0-9]/g, '');
+                if (rawPhone.length === 10) rawPhone = "91" + rawPhone;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition group";
+                tr.innerHTML = `
+                    <td class="px-6 py-4"><div class="font-bold text-slate-800">${lead.studentName}</div></td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <span id="ph-${lead.identifierID}" class="font-mono text-slate-600 bg-slate-100 px-2 rounded">${lead.studentPhone}</span>
+                            <button onclick="window.copyToClipboard('ph-${lead.identifierID}')" class="text-slate-400 hover:text-indigo-600"><i class="far fa-copy"></i></button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm">${lead.domain || lead.programPlan}</td>
+                    <td class="px-6 py-4 text-center">
+                        <a href="https://wa.me/${rawPhone}" target="_blank" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm">
+                            <i class="fab fa-whatsapp"></i> Connect
+                        </a>
+                    </td>
+                    <td class="px-6 py-4">
+                        <select onchange="window.updateStatus('${lead.identifierID}', this.value)" class="${selectClass}">
+                            <option value="unpaid" ${st.includes('unpaid') ? 'selected' : ''}>Unpaid</option>
+                            <option value="partially paid" ${st.includes('partial') ? 'selected' : ''}>Partially Paid</option>
+                            <option value="paid" ${isPaid ? 'selected' : ''}>Paid Complete</option>
+                            <option value="not interested" ${st === 'not interested' ? 'selected' : ''}>Not Interested</option>
+                        </select>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function updateStatus(docId, newStatus) {
+            try { await setDoc(doc(db, "leads", docId), { status: newStatus }, { merge: true }); }
+            catch (error) { alert("Failed to save status."); }
+        }
+
+        // --- HELPERS ---
+        function getStatusBadge(statusStr) {
+            const st = (statusStr || "unpaid").toLowerCase().trim();
+            if(st === 'paid') return `<span class="px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide status-paid">Paid</span>`;
+            if(st.includes('unpaid')) return `<span class="px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide status-unpaid">Unpaid</span>`;
+            if(st.includes('partial')) return `<span class="px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide status-partial">Partial</span>`;
+            return `<span class="px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide status-default">${st}</span>`;
+        }
+
+        function populateAdminSelectors() {
+            const select = document.getElementById('adminExecSelector');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">-- Choose Executive --</option>';
+            const execs = new Set(allLeads.map(l => l.executiveName).filter(n => n && n !== "Unassigned"));
+            [...execs].sort().forEach(ex => select.appendChild(new Option(ex, ex)));
+            if(currentVal) select.value = currentVal;
+            renderAdminExecSpecific();
+        }
+
+        function updateMonthDropdowns(data) {
+            const months = [...new Set(data.map(l => l.month).filter(m => m))].sort();
+            const updateSel = (id) => {
+                const el = document.getElementById(id);
+                if(!el) return;
+                const curr = el.value;
+                el.innerHTML = '<option value="all">All Months</option>' + (id.includes('Stats')?'<option value="all">Lifetime (All Months)</option>':'');
+                months.forEach(m => el.appendChild(new Option(m, m)));
+                if(months.includes(curr)) el.value = curr;
+            };
+            updateSel('adminMasterMonthFilter');
+            updateSel('adminExecMonthFilter');
+        }
+
+        // --- CSV ---
+        function findValue(row, keys) {
+            for (let k of keys) {
+                if (row[k] !== undefined) return row[k];
+                const match = Object.keys(row).find(rk => rk.toLowerCase().trim() === k.toLowerCase().trim());
+                if (match) return row[match];
+            }
+            return "";
+        }
+
+        function processCSV() {
+            const fileInput = document.getElementById('csvFile');
+            const statusDiv = document.getElementById('uploadStatus');
+            if (fileInput.files.length === 0) return alert("Select CSV first.");
+
+            statusDiv.innerHTML = '<div class="flex items-center gap-2 text-indigo-600"><div class="loader"></div> Uploading...</div>';
+
+            Papa.parse(fileInput.files[0], {
+                header: true, skipEmptyLines: true,
+                complete: async function(results) {
+                    try {
+                        const rows = results.data;
+                        let batch = writeBatch(db);
+                        let opCount = 0; let total = 0;
+
+                        for (let row of rows) {
+                            const id = findValue(row, ['Indentifier ID', 'Identifier ID']) || `gen_${Date.now()}_${Math.random().toString(36).substr(2,9)}`;
+                            const rawExecName = findValue(row, ["Student's Executive's Name", "Executive Name", "Executive", "Owner", "Sales Rep"]);
+                            const canonicalExec = getCanonicalName(rawExecName);
+
+                            const leadData = {
+                                identifierID: id,
+                                timestamp: findValue(row, ['Timestamp', 'Date']) || new Date().toISOString(),
+                                studentName: findValue(row, ['Student Name', 'Name']) || "Unknown",
+                                studentPhone: findValue(row, ['Student Phone', 'Phone', 'Mobile']) || "",
+                                executiveName: canonicalExec,
+                                rawExecutiveName: rawExecName,
+                                amountMentioned: findValue(row, ['Amount Mentioned by Executive']) || "0",
+                                amountPaid: findValue(row, ['Amount Paid for registration', 'Amount Paid', 'Paid']) || "0",
+                                programPlan: findValue(row, ['Program Plan', 'Plan']) || "",
+                                domain: findValue(row, ['Domain']) || "",
+                                month: findValue(row, ['Month selected', 'Month']) || "Unknown",
+                                status: findValue(row, ['Status']) || "unpaid"
+                            };
+
+                            batch.set(doc(db, "leads", id), leadData, { merge: true });
+                            opCount++; total++;
+                            if (opCount >= 400) { await batch.commit(); batch = writeBatch(db); opCount = 0; }
+                        }
+                        if (opCount > 0) await batch.commit();
+                        statusDiv.innerHTML = `<span class="text-emerald-600 font-bold"><i class="fas fa-check"></i> Done (${total} rows)</span>`;
+                    } catch (e) {
+                        console.error(e);
+                        statusDiv.innerHTML = `<span class="text-red-600">Error: ${e.message}</span>`;
+                    }
+                }
+            });
+        }
+
+        function filterTable(tableId, searchId) {
+            const filter = document.getElementById(searchId).value.toUpperCase();
+            const tr = document.getElementById(tableId).getElementsByTagName("tr");
+            for (let i = 1; i < tr.length; i++) {
+                tr[i].style.display = tr[i].innerText.toUpperCase().includes(filter) ? "" : "none";
+            }
+        }
+
+        function copyToClipboard(id) {
+            navigator.clipboard.writeText(document.getElementById(id).innerText);
+        }
+
+        function initAdminListeners() {
+            const q = query(collection(db, "leads"));
+            onSnapshot(q, (snapshot) => {
+                allLeads = [];
+                snapshot.forEach(doc => allLeads.push(doc.data()));
+                allLeads.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                updateMonthDropdowns(allLeads);
+                if(!document.getElementById('adminMasterView').classList.contains('hidden-view')) renderAdminMasterTable();
+                else if (!document.getElementById('adminExecStatsView').classList.contains('hidden-view')) renderAdminExecSpecific();
+            });
+        }
+
+        function initExecutiveListeners() {
+            const q = query(collection(db, "leads"), where("executiveName", "==", loggedInUser.name));
+            onSnapshot(q, (snapshot) => {
+                allLeads = [];
+                snapshot.forEach((doc) => allLeads.push(doc.data()));
+                allLeads.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                const months = [...new Set(allLeads.map(l => l.month).filter(m => m))].sort();
+                const el = document.getElementById('execMonthFilter');
+                if(el) {
+                    el.innerHTML = '<option value="all">All Months</option>';
+                    months.forEach(m => el.appendChild(new Option(m, m)));
+                }
+                renderExecutiveTable();
+            });
+        }
+
+        // --- EXPORT TO WINDOW (CRITICAL FIX FOR MODULE SCOPE) ---
+        window.handleLogin = handleLogin;
+        window.logout = logout;
+        window.switchAdminTab = switchAdminTab;
+        window.processCSV = processCSV;
+        window.filterTable = filterTable;
+        window.renderAdminExecSpecific = renderAdminExecSpecific;
+        window.renderExecutiveTable = renderExecutiveTable;
+        window.renderAdminMasterTable = renderAdminMasterTable;
+        window.updateStatus = updateStatus;
+        window.copyToClipboard = copyToClipboard;
+        window.addNewExecutive = addNewExecutive;
+        window.addAlias = addAlias;
+        window.removeAlias = removeAlias;
+        window.reassignAllLeads = reassignAllLeads;
+
+        console.log("SalesHub Script Loaded Successfully");
+    </script>
+</body>
+</html>
