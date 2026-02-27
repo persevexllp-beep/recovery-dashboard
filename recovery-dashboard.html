@@ -49,6 +49,15 @@
         }
         .alias-chip button { cursor: pointer; color: #6366f1; border: none; background: transparent; }
         .alias-chip button:hover { color: #dc2626; }
+
+        /* Toggles */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #68D391;
+        }
     </style>
 </head>
 <body class="h-screen overflow-hidden text-slate-800 flex">
@@ -104,6 +113,14 @@
                 <button onclick="window.switchAdminTab('team')" id="tab-team" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition">
                     <i class="fas fa-users-cog w-4 text-center"></i> Team & Mappings
                 </button>
+
+                <div class="mt-6 border-t border-slate-800 pt-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-2">Agent Activity</p>
+                    <div id="activeAgentsList" class="space-y-2 px-2 max-h-40 overflow-y-auto text-xs">
+                        <!-- Injected via JS -->
+                        <div class="text-slate-500 italic">Loading status...</div>
+                    </div>
+                </div>
             </nav>
 
             <!-- Exec Nav -->
@@ -125,7 +142,7 @@
                         <p id="sidebarUserRole" class="text-xs text-slate-400 capitalize">Role</p>
                     </div>
                 </div>
-                <button onclick="window.logout()" id="logoutBtn" class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-red-600 hover:text-white transition">
+                <button onclick="window.logout()" class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-red-600 hover:text-white transition">
                     <i class="fas fa-sign-out-alt"></i> Sign Out
                 </button>
             </div>
@@ -149,15 +166,6 @@
                 
                 <!-- ================= ADMIN: MASTER SHEET ================= -->
                 <div id="adminMasterView" class="hidden-view space-y-6">
-
-                    <!-- Active Users Panel -->
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-users text-emerald-500 mr-2"></i>Live Executives (Online)</h3>
-                        <div id="activeUsersList" class="flex flex-wrap gap-2 text-sm">
-                            <span class="text-slate-400 text-xs">Waiting for status...</span>
-                        </div>
-                    </div>
-
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                         <div class="flex gap-3 items-center w-full md:w-auto">
                              <label class="flex items-center justify-center px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg cursor-pointer hover:bg-indigo-100 transition border border-indigo-200 text-sm font-semibold gap-2">
@@ -170,34 +178,39 @@
                         <div id="uploadStatus" class="text-sm font-medium"></div>
                     </div>
 
-                    <div class="flex flex-col md:flex-row gap-4">
-                         <!-- Month Filter -->
-                         <div class="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
-                            <span class="pl-3 pr-2 text-gray-400 text-sm"><i class="far fa-calendar-alt"></i></span>
-                            <select id="adminMasterMonthFilter" onchange="window.renderAdminMasterTable()" class="p-2 bg-transparent outline-none text-sm font-medium text-slate-700 cursor-pointer min-w-[130px]">
-                                <option value="all">All Months</option>
-                            </select>
-                        </div>
+                    <div class="flex flex-col lg:flex-row gap-4">
                         
-                        <!-- NEW: Exec Type/Status Filter -->
-                        <div class="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
-                            <span class="pl-3 pr-2 text-gray-400 text-sm"><i class="fas fa-filter"></i></span>
-                            <select id="adminMasterExecFilter" onchange="window.renderAdminMasterTable()" class="p-2 bg-transparent outline-none text-sm font-medium text-slate-700 cursor-pointer min-w-[170px]">
-                                <option value="all">All Execs</option>
-                                <option value="unassigned">Unassigned Leads</option>
-                                <option value="active">Active Execs Only</option>
-                                <option value="inactive">Inactive Execs Only</option>
-                            </select>
+                        <!-- Filters -->
+                         <div class="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2">
+                            <!-- Month Filter -->
+                            <div class="flex items-center border-r border-slate-100 pr-2">
+                                <span class="pl-3 pr-2 text-gray-400 text-sm"><i class="far fa-calendar-alt"></i></span>
+                                <select id="adminMasterMonthFilter" onchange="window.renderAdminMasterTable()" class="p-2 bg-transparent outline-none text-sm font-medium text-slate-700 cursor-pointer min-w-[120px]">
+                                    <option value="all">All Months</option>
+                                </select>
+                            </div>
+                            <!-- Executive Filter (Includes Unassigned) -->
+                            <div class="flex items-center border-r border-slate-100 pr-2">
+                                <span class="pl-2 pr-2 text-gray-400 text-sm"><i class="fas fa-user-tie"></i></span>
+                                <select id="adminMasterExecFilter" onchange="window.renderAdminMasterTable()" class="p-2 bg-transparent outline-none text-sm font-medium text-slate-700 cursor-pointer min-w-[140px]">
+                                    <option value="all">All Executives</option>
+                                    <option value="Unassigned" class="text-red-600 font-bold">Unassigned Leads</option>
+                                </select>
+                            </div>
+                            <!-- Active Agents Only Toggle -->
+                             <div class="flex items-center px-3 gap-2">
+                                <input type="checkbox" id="activeAgentsOnly" onchange="window.renderAdminMasterTable()" class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
+                                <label for="activeAgentsOnly" class="text-xs font-bold text-slate-600 uppercase cursor-pointer">Active Agents Only</label>
+                            </div>
                         </div>
 
-                        <!-- Search -->
                         <div class="flex-1 relative">
                             <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
                             <input type="text" id="adminSearch" onkeyup="window.filterTable('adminTable', 'adminSearch')" placeholder="Search anything..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-400px)]">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-280px)]">
                         <div class="flex-1 overflow-auto rounded-xl">
                             <table id="adminTable" class="min-w-full text-sm text-left text-slate-600">
                                 <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200 sticky top-0">
@@ -261,7 +274,7 @@
                             </div>
                             <div class="flex-1 overflow-auto">
                                 <table class="min-w-full text-sm text-left text-slate-600">
-                                    <thead class="text-xs text-slate-500 uppercase bg-white border-b sticky top-0">
+                                    <thead class="text-xs text-slate-500 uppercase bg-white border-b">
                                         <tr><th class="px-6 py-4">Student</th><th class="px-6 py-4">Phone</th><th class="px-6 py-4 text-right">Paid</th><th class="px-6 py-4 text-center">Status</th></tr>
                                     </thead>
                                     <tbody id="adminExecSpecificTableBody" class="divide-y divide-slate-100"></tbody>
@@ -345,7 +358,7 @@
         import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         // ------------------------------------------------------------------
-        // REPLACE WITH YOUR ACTUAL CONFIGURATION OR LOGIN WILL FAIL FOR DATA
+        // CONFIGURATION
         // ------------------------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyDJ8KaP0EOwcr4GT2YEfRVybDmls7HIz3c",
@@ -404,87 +417,140 @@
         };
 
         // Fallback Mapping
-        let globalNameMapping = {
-            "Admin User": ["Admin", "System"],
-        };
+        let globalNameMapping = {};
 
         // --- STATE ---
-        let allLeads =[];
+        let allLeads = [];
+        let allUsersStatus = []; // Stores user online status
         let loggedInUser = null;
         let adminChart = null;
-        let heartbeatInterval = null;
-        let activeExecNames =[]; // Array to hold currently online executive names
 
-        // --- CHECK LOCAL STORAGE FOR AUTO-LOGIN ---
-        window.addEventListener('DOMContentLoaded', () => {
+        // --- INIT & PERSISTENT LOGIN ---
+        window.addEventListener('load', async () => {
             const savedUser = localStorage.getItem('salesHubUser');
             if (savedUser && USER_DB[savedUser]) {
-                document.getElementById('loginUser').value = savedUser;
-                document.getElementById('loginPass').value = USER_DB[savedUser].pass;
-                handleLogin(true); // Auto Login Trigger
+                // Auto Login
+                performLogin(savedUser);
             }
         });
 
-        // --- USER PRESENCE TRACKING ---
-        async function updateUserStatus(isOnline) {
-            if (!loggedInUser) return;
-            try {
-                await setDoc(doc(db, "user_status", loggedInUser.name), {
-                    online: isOnline,
-                    lastSeen: Date.now(),
-                    role: loggedInUser.role
-                }, { merge: true });
-            } catch (e) {
-                console.error("Failed to update user status", e);
-            }
-        }
-
         // --- AUTH ---
-        async function handleLogin(isAuto = false) {
+        async function handleLogin() {
             const userIn = document.getElementById('loginUser').value.toLowerCase().trim();
             const passIn = document.getElementById('loginPass').value;
 
             if (USER_DB[userIn] && USER_DB[userIn].pass === passIn) {
-                loggedInUser = USER_DB[userIn];
-                
-                // Save to local storage for future sessions
-                localStorage.setItem('salesHubUser', userIn);
-                
-                // Set User Online Status & Heartbeat
-                await updateUserStatus(true);
-                if (heartbeatInterval) clearInterval(heartbeatInterval);
-                heartbeatInterval = setInterval(() => updateUserStatus(true), 3 * 60 * 1000); // Heartbeat every 3 mins
-
-                // Switch Views
-                document.getElementById('loginView').classList.add('hidden-view');
-                document.getElementById('appLayout').classList.remove('hidden-view');
-                
-                document.getElementById('sidebarUserName').innerText = loggedInUser.name;
-                document.getElementById('sidebarUserRole').innerText = loggedInUser.role === 'admin' ? "Administrator" : "Sales Executive";
-
-                if(loggedInUser.role === 'admin') {
-                    document.getElementById('navAdmin').classList.remove('hidden-view');
-                    switchAdminTab('master');
-                    initAdminListeners();
-                    try { await loadMappings(); } catch(e) { console.warn("Mapping load skipped:", e); }
-                } else {
-                    document.getElementById('navExec').classList.remove('hidden-view');
-                    document.getElementById('pageTitle').innerText = "My Assigned Leads";
-                    document.getElementById('executiveOnlyView').classList.remove('hidden-view');
-                    initExecutiveListeners();
-                    try { await loadMappings(); } catch(e) { console.warn("Mapping load skipped:", e); }
-                }
+                localStorage.setItem('salesHubUser', userIn); // Save to LocalStorage
+                performLogin(userIn);
             } else {
-                if(!isAuto) alert("Invalid Username or Password.");
+                alert("Invalid Username or Password.");
             }
         }
 
-        async function logout() { 
-            document.getElementById('logoutBtn').innerHTML = `<i class="fas fa-spinner fa-spin"></i> Signing Out...`;
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            await updateUserStatus(false);
+        async function performLogin(username) {
+            loggedInUser = USER_DB[username];
+            
+            // Record Activity
+            try {
+                await setDoc(doc(db, "users", username), {
+                    name: loggedInUser.name,
+                    role: loggedInUser.role,
+                    lastSeen: new Date().toISOString()
+                }, { merge: true });
+            } catch(e) { console.error("Could not update presence", e); }
+
+            // Switch Views
+            document.getElementById('loginView').classList.add('hidden-view');
+            document.getElementById('appLayout').classList.remove('hidden-view');
+            
+            document.getElementById('sidebarUserName').innerText = loggedInUser.name;
+            document.getElementById('sidebarUserRole').innerText = loggedInUser.role === 'admin' ? "Administrator" : "Sales Executive";
+
+            if(loggedInUser.role === 'admin') {
+                document.getElementById('navAdmin').classList.remove('hidden-view');
+                switchAdminTab('master');
+                initAdminListeners();
+                initPresenceListener(); // Admin sees who is online
+                try { await loadMappings(); } catch(e) { console.warn("Mapping load skipped:", e); }
+            } else {
+                document.getElementById('navExec').classList.remove('hidden-view');
+                document.getElementById('pageTitle').innerText = "My Assigned Leads";
+                document.getElementById('executiveOnlyView').classList.remove('hidden-view');
+                initExecutiveListeners();
+                try { await loadMappings(); } catch(e) { console.warn("Mapping load skipped:", e); }
+            }
+        }
+
+        function logout() {
             localStorage.removeItem('salesHubUser');
             location.reload(); 
+        }
+
+        // --- PRESENCE SYSTEM (Who is online) ---
+        function initPresenceListener() {
+            // Listen to users collection
+            onSnapshot(collection(db, "users"), (snapshot) => {
+                allUsersStatus = [];
+                snapshot.forEach(doc => {
+                    allUsersStatus.push(doc.data());
+                });
+                renderActiveAgentsPanel();
+            });
+        }
+
+        function renderActiveAgentsPanel() {
+            const container = document.getElementById('activeAgentsList');
+            container.innerHTML = '';
+            
+            // Sort: Online first (last 24 hours), then alphabetical
+            const now = new Date();
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            allUsersStatus.sort((a,b) => {
+                const aActive = (now - new Date(a.lastSeen)) < oneDay;
+                const bActive = (now - new Date(b.lastSeen)) < oneDay;
+                if (aActive === bActive) return a.name.localeCompare(b.name);
+                return bActive ? 1 : -1;
+            });
+
+            allUsersStatus.forEach(u => {
+                if(u.role === 'admin') return; // Hide admin from list
+                
+                const lastSeenDate = new Date(u.lastSeen);
+                const diff = now - lastSeenDate;
+                const isOnline = diff < oneDay; // Considered "Active" if logged in last 24h
+                
+                // Format Time
+                let timeStr = "";
+                if(diff < 60000) timeStr = "Just now";
+                else if (diff < 3600000) timeStr = `${Math.floor(diff/60000)}m ago`;
+                else if (diff < oneDay) timeStr = `${Math.floor(diff/3600000)}h ago`;
+                else timeStr = lastSeenDate.toLocaleDateString();
+
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center p-2 rounded hover:bg-slate-800 transition";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}"></div>
+                        <span class="truncate max-w-[100px] ${isOnline ? 'text-white' : 'text-slate-500'}">${u.name}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500">${timeStr}</span>
+                `;
+                container.appendChild(div);
+            });
+            
+            // Re-render table if filters depend on active status
+            if(document.getElementById('activeAgentsOnly').checked) {
+                renderAdminMasterTable();
+            }
+        }
+
+        function getActiveUserNames() {
+            const now = new Date();
+            const oneDay = 24 * 60 * 60 * 1000;
+            return allUsersStatus
+                .filter(u => (now - new Date(u.lastSeen)) < oneDay)
+                .map(u => u.name);
         }
 
         // --- TABS ---
@@ -529,7 +595,6 @@
                 if (docSnap.exists()) {
                     globalNameMapping = docSnap.data().data;
                 } else {
-                    // Initialize with standard executive list from USER_DB keys if empty
                     const initialMap = {};
                     Object.values(USER_DB).forEach(u => {
                         if(u.role === 'exec') initialMap[u.name] = [u.name];
@@ -549,7 +614,7 @@
             const sortedNames = Object.keys(globalNameMapping).sort();
 
             sortedNames.forEach(name => {
-                const aliases = globalNameMapping[name] ||[];
+                const aliases = globalNameMapping[name] || [];
                 const card = document.createElement('div');
                 card.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3";
                 
@@ -656,37 +721,44 @@
             const tbody = document.getElementById('adminTableBody');
             tbody.innerHTML = '';
             
-            const selectedMonth = document.getElementById('adminMasterMonthFilter').value;
-            const selectedExecFilter = document.getElementById('adminMasterExecFilter').value;
-            
+            const monthFilter = document.getElementById('adminMasterMonthFilter').value;
+            const execFilter = document.getElementById('adminMasterExecFilter').value;
+            const activeOnly = document.getElementById('activeAgentsOnly').checked;
+
             let displayLeads = allLeads;
 
-            // Apply Month Filter
-            if (selectedMonth !== 'all') {
-                displayLeads = displayLeads.filter(l => l.month === selectedMonth);
+            // 1. Filter by Month
+            if (monthFilter !== 'all') {
+                displayLeads = displayLeads.filter(l => l.month === monthFilter);
             }
 
-            // Apply Exec/Status Filter
-            if (selectedExecFilter === 'unassigned') {
-                displayLeads = displayLeads.filter(l => l.executiveName === 'Unassigned');
-            } else if (selectedExecFilter === 'active') {
-                // Keep only leads where the executive is currently online
-                displayLeads = displayLeads.filter(l => activeExecNames.includes(l.executiveName));
-            } else if (selectedExecFilter === 'inactive') {
-                // Keep leads where executive is NOT online AND NOT Unassigned
-                displayLeads = displayLeads.filter(l => l.executiveName !== 'Unassigned' && !activeExecNames.includes(l.executiveName));
+            // 2. Filter by Executive Name
+            if (execFilter !== 'all') {
+                if(execFilter === 'Unassigned') {
+                    displayLeads = displayLeads.filter(l => l.executiveName === 'Unassigned' || !l.executiveName);
+                } else {
+                    displayLeads = displayLeads.filter(l => l.executiveName === execFilter);
+                }
             }
-            
+
+            // 3. Filter by Active Agents Only
+            if (activeOnly) {
+                const activeNames = getActiveUserNames();
+                displayLeads = displayLeads.filter(l => activeNames.includes(l.executiveName));
+            }
+
             displayLeads.slice(0, 300).forEach(lead => {
-                const isUnassigned = lead.executiveName === 'Unassigned';
-                const execClass = isUnassigned ? "text-red-600 font-bold" : "text-indigo-600 font-medium";
-
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition";
+                
+                // Highlight Unassigned
+                const isUnassigned = lead.executiveName === 'Unassigned';
+                const execClass = isUnassigned ? "text-red-600 font-bold bg-red-50 px-2 py-1 rounded" : "text-indigo-600 font-medium";
+
                 tr.innerHTML = `
                     <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">${new Date(lead.timestamp).toLocaleDateString()}</td>
                     <td class="px-6 py-4"><div class="font-bold text-slate-800">${lead.studentName}</div></td>
-                    <td class="px-6 py-4 text-sm ${execClass}">${lead.executiveName}</td>
+                    <td class="px-6 py-4 text-sm"><span class="${execClass}">${lead.executiveName}</span></td>
                     <td class="px-6 py-4 text-xs text-gray-400">${lead.rawExecutiveName || '-'}</td>
                     <td class="px-6 py-4 text-xs text-slate-500 font-mono bg-slate-100 rounded px-2 w-fit">${lead.month}</td>
                     <td class="px-6 py-4 text-center">${getStatusBadge(lead.status)}</td>
@@ -740,7 +812,7 @@
                 type: 'doughnut',
                 data: {
                     labels: ['Paid', 'Unpaid', 'Partial', 'Other'],
-                    datasets: [{ data:[counts.paid, counts.unpaid, counts.partial, counts.other], backgroundColor:['#22c55e', '#ef4444', '#eab308', '#94a3b8'], borderWidth: 0 }]
+                    datasets: [{ data: [counts.paid, counts.unpaid, counts.partial, counts.other], backgroundColor: ['#22c55e', '#ef4444', '#eab308', '#94a3b8'], borderWidth: 0 }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom' } } }
             });
@@ -751,6 +823,11 @@
             tbody.innerHTML = '';
             const selectedMonth = document.getElementById('execMonthFilter').value;
             let filteredLeads = selectedMonth === 'all' ? allLeads : allLeads.filter(l => l.month === selectedMonth);
+
+            if(filteredLeads.length === 0) {
+               tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No leads found. If this is a mistake, please contact Admin to check Name Mappings.</td></tr>`;
+               return;
+            }
 
             filteredLeads.forEach(lead => {
                 const st = (lead.status || "unpaid").toLowerCase().trim();
@@ -807,17 +884,26 @@
         }
 
         function populateAdminSelectors() {
+            // Exec Specific View Selector
             const select = document.getElementById('adminExecSelector');
             const currentVal = select.value;
             select.innerHTML = '<option value="">-- Choose Executive --</option>';
             const execs = new Set(allLeads.map(l => l.executiveName).filter(n => n && n !== "Unassigned"));
             [...execs].sort().forEach(ex => select.appendChild(new Option(ex, ex)));
             if(currentVal) select.value = currentVal;
+
+            // Master View Filter (includes Unassigned)
+            const masterSelect = document.getElementById('adminMasterExecFilter');
+            const currentMasterVal = masterSelect.value;
+            masterSelect.innerHTML = '<option value="all">All Executives</option><option value="Unassigned" class="text-red-600 font-bold">Unassigned Leads</option>';
+            [...execs].sort().forEach(ex => masterSelect.appendChild(new Option(ex, ex)));
+            if(currentMasterVal) masterSelect.value = currentMasterVal;
+
             renderAdminExecSpecific();
         }
 
         function updateMonthDropdowns(data) {
-            const months =[...new Set(data.map(l => l.month).filter(m => m))].sort();
+            const months = [...new Set(data.map(l => l.month).filter(m => m))].sort();
             const updateSel = (id) => {
                 const el = document.getElementById(id);
                 if(!el) return;
@@ -857,7 +943,7 @@
 
                         for (let row of rows) {
                             const id = findValue(row, ['Indentifier ID', 'Identifier ID']) || `gen_${Date.now()}_${Math.random().toString(36).substr(2,9)}`;
-                            const rawExecName = findValue(row,["Student's Executive's Name", "Executive Name", "Executive", "Owner", "Sales Rep"]);
+                            const rawExecName = findValue(row, ["Student's Executive's Name", "Executive Name", "Executive", "Owner", "Sales Rep"]);
                             const canonicalExec = getCanonicalName(rawExecName);
 
                             const leadData = {
@@ -870,7 +956,7 @@
                                 amountMentioned: findValue(row, ['Amount Mentioned by Executive']) || "0",
                                 amountPaid: findValue(row, ['Amount Paid for registration', 'Amount Paid', 'Paid']) || "0",
                                 programPlan: findValue(row, ['Program Plan', 'Plan']) || "",
-                                domain: findValue(row,['Domain']) || "",
+                                domain: findValue(row, ['Domain']) || "",
                                 month: findValue(row, ['Month selected', 'Month']) || "Unknown",
                                 status: findValue(row, ['Status']) || "unpaid"
                             };
@@ -902,65 +988,49 @@
         }
 
         function initAdminListeners() {
-            // Track leads
             const q = query(collection(db, "leads"));
             onSnapshot(q, (snapshot) => {
-                allLeads =[];
+                allLeads = [];
                 snapshot.forEach(doc => allLeads.push(doc.data()));
                 allLeads.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
                 updateMonthDropdowns(allLeads);
+                populateAdminSelectors();
+                
                 if(!document.getElementById('adminMasterView').classList.contains('hidden-view')) renderAdminMasterTable();
                 else if (!document.getElementById('adminExecStatsView').classList.contains('hidden-view')) renderAdminExecSpecific();
-            });
-
-            // Track active user status
-            const statusQ = query(collection(db, "user_status"));
-            onSnapshot(statusQ, (snapshot) => {
-                const now = Date.now();
-                activeExecNames = [];
-                let htmlFragments =[];
-
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    // Consider them "Online" if they are active AND their last ping was within 10 minutes (600,000 ms)
-                    if (data.role === 'exec' && data.online && (now - data.lastSeen < 600000)) {
-                        activeExecNames.push(docSnap.id);
-                        htmlFragments.push(`<span class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-xs font-semibold flex items-center gap-1 shadow-sm"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ${docSnap.id}</span>`);
-                    }
-                });
-
-                const container = document.getElementById('activeUsersList');
-                if(container) {
-                    container.innerHTML = htmlFragments.length > 0 ? htmlFragments.join('') : '<span class="text-slate-400 text-xs italic">No executives currently online.</span>';
-                }
-
-                // If currently viewing master table, re-render to apply active/inactive filter dynamically
-                if(!document.getElementById('adminMasterView').classList.contains('hidden-view')) {
-                    renderAdminMasterTable();
-                }
             });
         }
 
         function initExecutiveListeners() {
-            const q = query(collection(db, "leads"), where("executiveName", "==", loggedInUser.name));
+            // Updated Robust Listener from previous fix
+            const q = query(
+                collection(db, "leads"), 
+                where("executiveName", "==", loggedInUser.name)
+            );
+
             onSnapshot(q, (snapshot) => {
-                allLeads =[];
-                snapshot.forEach((doc) => allLeads.push(doc.data()));
+                allLeads = [];
+                snapshot.forEach((doc) => {
+                    let data = doc.data();
+                    data.identifierID = doc.id; // Ensure ID matches Doc ID for status updates
+                    allLeads.push(data);
+                });
+                
                 allLeads.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
                 
-                const months =[...new Set(allLeads.map(l => l.month).filter(m => m))].sort();
+                const months = [...new Set(allLeads.map(l => l.month).filter(m => m))].sort();
                 const el = document.getElementById('execMonthFilter');
                 if(el) {
-                    const currentVal = el.value;
+                    const prev = el.value;
                     el.innerHTML = '<option value="all">All Months</option>';
                     months.forEach(m => el.appendChild(new Option(m, m)));
-                    if(months.includes(currentVal)) el.value = currentVal;
+                    if(months.includes(prev)) el.value = prev;
                 }
                 renderExecutiveTable();
             });
         }
 
-        // --- EXPORT TO WINDOW (CRITICAL FIX FOR MODULE SCOPE) ---
+        // --- EXPORT TO WINDOW ---
         window.handleLogin = handleLogin;
         window.logout = logout;
         window.switchAdminTab = switchAdminTab;
@@ -976,7 +1046,8 @@
         window.removeAlias = removeAlias;
         window.reassignAllLeads = reassignAllLeads;
 
-        console.log("SalesHub Script Loaded Successfully");
+        console.log("SalesHub Script Loaded");
     </script>
 </body>
+
 </html>
